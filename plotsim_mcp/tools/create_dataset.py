@@ -41,7 +41,6 @@ from plotsim_mcp import runs
 from plotsim_mcp.errors import (
     CODE_BUDGET_EXCEEDED,
     CODE_CONFIG_INVALID,
-    CODE_INTERNAL,
     CODE_TEMPLATE_UNKNOWN,
     ToolError,
 )
