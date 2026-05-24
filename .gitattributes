@@ -1,0 +1,5 @@
+# Normalize line endings to LF on commit so contributors on Windows and
+# Linux see byte-identical files in the object store. Mirrors plotsim's
+# policy; closes the "LF will be replaced by CRLF" warnings observed
+# during the initial scaffold commit.
+* text=auto eol=lf

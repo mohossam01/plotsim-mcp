@@ -4,7 +4,7 @@ Model Context Protocol server for [plotsim](https://github.com/mohossam01/plotsi
 
 ## Status
 
-`0.0.1` — scaffold and a single proof-of-wire tool (`list_templates`). Full tool surface lands in subsequent releases.
+`0.0.2` — discovery, templates, and authoring tools are live. Generation, inspection, and trace tools land in subsequent releases.
 
 ## Install
 
@@ -41,13 +41,17 @@ Add an entry under the `mcpServers` key of your `claude_desktop_config.json` (lo
 
 Restart Claude Desktop. The `plotsim` server should appear in the MCP tool inspector.
 
-## Available tools (0.0.1)
+## Available tools (0.0.2)
 
 | Tool | Returns |
 |---|---|
 | `list_templates` | Names and descriptions of the bundled plotsim domain templates. |
+| `get_schema` | The full `PlotsimConfig` JSON Schema plus the plotsim version it was emitted by. |
+| `describe_capability` | Vocabulary for a named area (`archetypes`, `curves`, `distributions`, `arrival_shapes`, `output_formats`, `quality_types`, `validation_checks`). |
+| `get_template` | Raw YAML text and parsed dict for a bundled template. |
+| `validate_config` | Structural validation of a YAML or dict against the builder `UserInput` schema; structured pydantic errors on failure. |
 
-Subsequent releases add discovery, validation, generation, inspection, and trace tools — see `CHANGELOG.md`.
+Subsequent releases add generation, inspection, and trace tools — see `CHANGELOG.md`.
 
 ## Error contract
 

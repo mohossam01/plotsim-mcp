@@ -1,6 +1,6 @@
 [project]
 name = "plotsim-mcp"
-version = "0.0.1"
+version = "0.0.2"
 description = "Model Context Protocol server for plotsim — generate, validate, and inspect synthetic multi-table datasets from an MCP client."
 readme = "README.md"
 license = { text = "Apache-2.0" }
