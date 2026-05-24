@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use plotsim-mcp in academic or published work, please cite it as below."
+type: software
+title: plotsim-mcp
+abstract: >-
+  Model Context Protocol server for plotsim — generate, validate, and
+  inspect synthetic multi-table datasets from any MCP client (Claude
+  Desktop, MCP Inspector, custom integrations). Wraps plotsim's library
+  surface and adds a sandboxed run-id convention so generated runs
+  round-trip through inspection and trace tools.
+authors:
+  - family-names: Hossam
+    given-names: Mohamed
+    alias: mohossam01
+repository-code: "https://github.com/mohossam01/plotsim-mcp"
+url: "https://github.com/mohossam01/plotsim-mcp"
+license: Apache-2.0
+keywords:
+  - mcp
+  - model-context-protocol
+  - plotsim
+  - synthetic-data
+  - claude
+  - data-generation
+version: "0.1.0"
+date-released: "YYYY-MM-DD"
