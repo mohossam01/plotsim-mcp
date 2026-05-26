@@ -46,9 +46,12 @@ def _summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     )
     archetype_counts.pop(None, None)
 
+    # Field names mirror the pydantic classes plotsim writes:
+    # ``TrajectorySample.entity``, ``EventFiring.table``,
+    # ``BridgeAssociationRecord.bridge`` (``plotsim/manifest.py``).
     trajectory_samples = manifest.get("trajectory_samples", []) or []
     sampled_entities = {
-        s.get("entity_id") for s in trajectory_samples if isinstance(s, dict)
+        s.get("entity") for s in trajectory_samples if isinstance(s, dict)
     }
     sampled_entities.discard(None)
 
@@ -56,7 +59,7 @@ def _summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     event_counts: Counter[str] = Counter()
     for firing in event_firings:
         if isinstance(firing, dict):
-            event_counts[str(firing.get("event_name", "unknown"))] += 1
+            event_counts[str(firing.get("table", "unknown"))] += 1
 
     treatment_cohorts = manifest.get("treatment_cohorts", []) or []
     correlation_phases = manifest.get("correlation_phases", []) or []
@@ -65,7 +68,7 @@ def _summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     bridge_counts: Counter[str] = Counter()
     for record in bridge_associations:
         if isinstance(record, dict):
-            bridge_counts[str(record.get("bridge_name", "unknown"))] += 1
+            bridge_counts[str(record.get("bridge", "unknown"))] += 1
 
     return {
         "schema_version": manifest.get("schema_version"),

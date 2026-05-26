@@ -31,28 +31,33 @@ def test_summarize_manifest_handles_empty_input() -> None:
 
 
 def test_summarize_manifest_counts_archetypes_and_events() -> None:
+    # Field names mirror the pydantic classes in ``plotsim/manifest.py``:
+    # ``EntityArchetypeAssignment.entity``, ``TrajectorySample.entity``,
+    # ``EventFiring.table``, ``BridgeAssociationRecord.bridge``.
     manifest = {
         "schema_version": "1.11",
         "seed": 7,
         "config_sha256": "abc123",
         "archetype_assignments": [
-            {"entity_id": "e0", "archetype": "growth"},
-            {"entity_id": "e1", "archetype": "growth"},
-            {"entity_id": "e2", "archetype": "decline"},
+            {"entity": "e0", "archetype": "growth"},
+            {"entity": "e1", "archetype": "growth"},
+            {"entity": "e2", "archetype": "decline"},
         ],
         "trajectory_samples": [
-            {"entity_id": "e0", "samples": [(0, 0.1)]},
-            {"entity_id": "e1", "samples": [(0, 0.2)]},
+            {"entity": "e0", "period_index": 0, "position": 0.1},
+            {"entity": "e1", "period_index": 0, "position": 0.2},
         ],
         "event_firings": [
-            {"event_name": "churn", "entity_id": "e2", "period": 5},
-            {"event_name": "churn", "entity_id": "e3", "period": 6},
-            {"event_name": "signup", "entity_id": "e4", "period": 1},
+            {"table": "churn", "entity": "e2", "period_indices": [5]},
+            {"table": "churn", "entity": "e3", "period_indices": [6]},
+            {"table": "signup", "entity": "e4", "period_indices": [1]},
         ],
         "treatment_cohorts": [{"label": "control"}, {"label": "treated"}],
         "correlation_phases": [{"phase_index": 0}, {"phase_index": 1}],
         "bridges": [{"name": "user_team"}],
-        "bridge_associations": [{"bridge_name": "user_team", "rows": 1}] * 12,
+        "bridge_associations": [
+            {"bridge": "user_team", "entity": "e0", "targets": [], "cardinality": 0}
+        ] * 12,
     }
     summary = _summarize_manifest(manifest)
     assert summary["archetype_counts"] == {"growth": 2, "decline": 1}
@@ -73,7 +78,7 @@ def test_describe_run_payload_returns_envelope_for_real_dir(
         "schema_version": "1.11",
         "seed": 1,
         "config_sha256": "xyz",
-        "archetype_assignments": [{"entity_id": "e0", "archetype": "growth"}],
+        "archetype_assignments": [{"entity": "e0", "archetype": "growth"}],
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (run_dir / "config.yaml").write_text("about: x", encoding="utf-8")

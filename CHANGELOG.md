@@ -4,6 +4,25 @@ All notable changes to `plotsim-mcp` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `describe_run` summary now reads the manifest field names plotsim's
+  pydantic classes actually emit, so three counters that previously
+  collapsed against any real run produce the expected results:
+  - `summary.trajectory_sampled_entities` reads `TrajectorySample.entity`
+    (was the non-existent `entity_id`; count was always 0).
+  - `summary.event_counts` keys come from `EventFiring.table`
+    (was `event_name`; every firing bucketed under `"unknown"`).
+  - `summary.bridge_association_counts` keys come from
+    `BridgeAssociationRecord.bridge` (was `bridge_name`; every
+    association bucketed under `"unknown"`).
+  `load_run.manifest_summary` inherits the fix because it composes
+  `describe_run_payload`. Unit-test fixtures that encoded the wrong
+  keys were rewritten alongside the source change; a new integration
+  test asserts the three counters against an end-to-end banking-template
+  run so the same regression cannot recur silently.
+
 ## [0.1.0] — 2026-05-24
 
 First public release. `pip install plotsim-mcp` resolves to PyPI; the

@@ -28,7 +28,7 @@ def _write_minimal_run(rid: str) -> Path:
         "seed": 1,
         "config_sha256": "abc",
         "archetype_assignments": [
-            {"entity_id": "e0", "archetype": "growth"},
+            {"entity": "e0", "archetype": "growth"},
         ],
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
