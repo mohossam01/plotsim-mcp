@@ -6,6 +6,65 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `list_runs()` — enumerate every dataset run under the sandbox root.
+  Returns `{runs: [{run_id, output_dir, modified_at, validation_ok}, ...]}`
+  sorted most-recent first. `modified_at` is ISO 8601 UTC.
+  `validation_ok` is `true`/`false` mirroring the report's `Status:`
+  line, `null` when no `validation_report.txt` is present (so callers
+  can distinguish "haven't validated" from "validation failed"). Empty
+  sandbox returns `{"runs": []}` rather than raising.
+- `get_sandbox_root()` — return the directory every run lives under
+  plus the environment variable that controls it. Returns
+  `{sandbox_root: <path>, env_var: "PLOTSIM_MCP_RUN_ROOT"}`. Closes
+  the discoverability gap that previously made
+  `create_dataset.output_dir` require out-of-band knowledge of either
+  the env var name or the platform-default temp path.
+- `create_dataset` now writes a builder-shape `config.userinput.yaml`
+  sidecar alongside plotsim's engine-shape `config.yaml`. The sidecar
+  captures the exact dict the call submitted (after overrides, seed
+  injection, and the sandbox-directory rewrite) and is the source of
+  truth for inspection tools that surface user-facing labels.
+- README — end-to-end usage scenario walking through
+  `list_templates` → `get_template` → `preview` → `create_dataset` →
+  `describe_run` → `trace_cell` → `load_run` → follow-up
+  `create_dataset` (modify-and-rerun). Tool input semantics section
+  documenting the accepted shapes for `create_dataset.template_or_config`,
+  `create_dataset.overrides`, `validate_config.config`, `preview.config`,
+  `describe_capability.area`, and `trace_cell.row_id`. Claude Desktop
+  smoke-test prompt exercising three tools with documented success and
+  failure behavior.
+
+### Changed
+- `get_schema` returns the builder-shape `UserInput` JSON Schema
+  instead of the engine-shape `PlotsimConfig` schema. The exported
+  shape is now the same input shape `validate_config`, `preview`, and
+  `create_dataset` accept — client-side form validation no longer
+  generates configs the authoring tools reject.
+- `load_run.config_yaml` and `load_run.config_parsed` return the
+  builder-shape sidecar when present, instead of plotsim's engine-shape
+  `config.yaml`. The returned YAML round-trips through `validate_config`
+  and `create_dataset` without manual reshaping, fixing the
+  modify-and-rerun loop. Runs created before this change still load
+  via an engine-shape fallback (documented in the tool's docstring).
+- `describe_capability("archetypes")` returns the canonical six-word
+  atomic vocabulary (`accelerating`, `decline`, `flat`, `growth`,
+  `seasonal`, `spike_then_crash`) from plotsim's archetype DSL,
+  instead of the subset of words that happened to appear in bundled
+  templates. Composite archetype DSL specs (e.g. `"growth then plateau"`)
+  remain valid input — only the atomic vocabulary is enumerated.
+- `describe_run.archetype_counts` keys are the user-authored archetype
+  words read from the run's sidecar, instead of the per-segment instance
+  names plotsim's interpreter writes to the manifest. Two segments
+  sharing the same archetype now collapse into a single count entry.
+  Legacy runs without a sidecar fall through unchanged.
+- `preview.archetypes_in_use` reports the archetype words declared on
+  the input `segments` list, instead of the post-interpret instance
+  names off `config.entities[].archetype`.
+- `trace_cell.trace.archetype` reports the user-authored archetype
+  word from the run's sidecar, instead of the post-interpret segment
+  name on plotsim's internal `TraceResult.archetype_name`.
+
 ### Fixed
 - `describe_run` summary now reads the manifest field names plotsim's
   pydantic classes actually emit, so three counters that previously
