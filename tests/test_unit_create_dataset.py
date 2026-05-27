@@ -128,6 +128,36 @@ def test_create_dataset_payload_happy_path(_isolated_sandbox: Path) -> None:
     assert envelope["validation_summary"]["ok"] is True
 
 
+def test_create_dataset_writes_builder_shape_sidecar(
+    _isolated_sandbox: Path,
+) -> None:
+    """``config.userinput.yaml`` is the contract anchor for the modify-and-rerun
+    loop. It must (1) be written alongside plotsim's engine-shape
+    ``config.yaml``, (2) parse back through ``UserInput`` without
+    coercion, and (3) preserve the segment-name → archetype-word mapping
+    inspection tools rely on.
+    """
+    from plotsim.builder.input import UserInput
+
+    envelope = create_dataset_payload(_TINY_CONFIG, seed=23)
+    output_dir = Path(envelope["output_dir"])
+    sidecar = output_dir / "config.userinput.yaml"
+    assert sidecar.is_file(), "sidecar must land alongside engine-shape config.yaml"
+    assert (output_dir / "config.yaml").is_file(), (
+        "engine-shape config.yaml is preserved untouched by the sidecar write"
+    )
+
+    parsed = yaml.safe_load(sidecar.read_text(encoding="utf-8"))
+    assert isinstance(parsed, dict)
+    # The sidecar reflects the exact dict plotsim.create() consumed —
+    # post-override, post-seed-injection, post-sandbox-rewrite.
+    assert parsed["unit"] == "customer"
+    assert parsed["seed"] == 23
+    assert parsed["segments"][0]["archetype"] == "growth"
+    # Round-trip back through the builder schema without engine coercion.
+    UserInput(**parsed)
+
+
 def test_create_dataset_payload_honors_caller_output_dir(
     _isolated_sandbox: Path,
 ) -> None:

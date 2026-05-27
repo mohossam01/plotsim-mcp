@@ -43,11 +43,11 @@ def test_yaml_string_input_supported() -> None:
     assert payload["entities"] == 10
 
 
-def test_archetypes_in_use_reflects_interpreted_entities() -> None:
-    # plotsim's interpreter assigns one archetype per segment (the segment
-    # name becomes the archetype name in the engine config). The preview
-    # output reports the *interpreted* archetype set, not the user-facing
-    # input labels — that's what's actually generated against.
+def test_archetypes_in_use_reports_builder_shape_words() -> None:
+    """``archetypes_in_use`` surfaces the user-authored archetype words,
+    not the post-interpret per-segment instance names. Two segments
+    sharing the same archetype dedupe to a single value.
+    """
     cfg = {
         **_MINIMAL_VALID,
         "segments": [
@@ -56,9 +56,19 @@ def test_archetypes_in_use_reflects_interpreted_entities() -> None:
         ],
     }
     payload = preview_payload(cfg)
-    assert len(payload["archetypes_in_use"]) == 2
-    assert "alpha_cohort" in payload["archetypes_in_use"]
-    assert "beta_cohort" in payload["archetypes_in_use"]
+    assert payload["archetypes_in_use"] == ["growth"]
+
+
+def test_archetypes_in_use_preserves_distinct_words() -> None:
+    cfg = {
+        **_MINIMAL_VALID,
+        "segments": [
+            {"name": "alpha_cohort", "count": 5, "archetype": "growth"},
+            {"name": "beta_cohort", "count": 5, "archetype": "decline"},
+        ],
+    }
+    payload = preview_payload(cfg)
+    assert payload["archetypes_in_use"] == ["decline", "growth"]
 
 
 def test_non_dict_yaml_raises_typeerror() -> None:

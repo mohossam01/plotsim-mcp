@@ -11,6 +11,7 @@ import pytest
 
 from plotsim_mcp import runs
 from plotsim_mcp.tools.describe_run import (
+    _segment_to_archetype,
     _summarize_manifest,
     describe_run_payload,
 )
@@ -23,7 +24,7 @@ def _isolated_sandbox(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
 
 def test_summarize_manifest_handles_empty_input() -> None:
-    summary = _summarize_manifest({})
+    summary = _summarize_manifest({}, {})
     assert summary["archetype_assignments_total"] == 0
     assert summary["event_counts"] == {}
     assert summary["correlation_phase_count"] == 0
@@ -31,17 +32,20 @@ def test_summarize_manifest_handles_empty_input() -> None:
 
 
 def test_summarize_manifest_counts_archetypes_and_events() -> None:
-    # Field names mirror the pydantic classes in ``plotsim/manifest.py``:
-    # ``EntityArchetypeAssignment.entity``, ``TrajectorySample.entity``,
-    # ``EventFiring.table``, ``BridgeAssociationRecord.bridge``.
+    # The manifest carries each entity's post-interpret archetype, which
+    # plotsim's interpreter sets to the source segment name. The aliases
+    # mapping translates those segment names back to the user's authored
+    # archetype word for ``archetype_counts``. Other counts (events,
+    # bridges, trajectory samples) read manifest field names that mirror
+    # the pydantic classes in ``plotsim/manifest.py`` directly.
     manifest = {
         "schema_version": "1.11",
         "seed": 7,
         "config_sha256": "abc123",
         "archetype_assignments": [
-            {"entity": "e0", "archetype": "growth"},
-            {"entity": "e1", "archetype": "growth"},
-            {"entity": "e2", "archetype": "decline"},
+            {"entity": "e0", "archetype": "alpha_cohort"},
+            {"entity": "e1", "archetype": "alpha_cohort"},
+            {"entity": "e2", "archetype": "beta_cohort"},
         ],
         "trajectory_samples": [
             {"entity": "e0", "period_index": 0, "position": 0.1},
@@ -59,7 +63,10 @@ def test_summarize_manifest_counts_archetypes_and_events() -> None:
             {"bridge": "user_team", "entity": "e0", "targets": [], "cardinality": 0}
         ] * 12,
     }
-    summary = _summarize_manifest(manifest)
+    aliases = {"alpha_cohort": "growth", "beta_cohort": "decline"}
+    summary = _summarize_manifest(manifest, aliases)
+    # Counts roll up to the user-authored archetype words, not the
+    # segment names the manifest records.
     assert summary["archetype_counts"] == {"growth": 2, "decline": 1}
     assert summary["event_counts"] == {"churn": 2, "signup": 1}
     assert summary["trajectory_sampled_entities"] == 2
@@ -67,6 +74,45 @@ def test_summarize_manifest_counts_archetypes_and_events() -> None:
     assert summary["correlation_phase_count"] == 2
     assert summary["bridges"] == ["user_team"]
     assert summary["bridge_association_counts"] == {"user_team": 12}
+
+
+def test_summarize_manifest_passes_through_unknown_archetypes() -> None:
+    # Legacy runs without a sidecar yield an empty aliases dict; the
+    # summarizer falls back to surfacing the manifest's segment-name keys
+    # unchanged so the tool still produces useful output.
+    manifest = {
+        "archetype_assignments": [
+            {"entity": "e0", "archetype": "alpha_cohort"},
+            {"entity": "e1", "archetype": "beta_cohort"},
+        ],
+    }
+    summary = _summarize_manifest(manifest, {})
+    assert summary["archetype_counts"] == {"alpha_cohort": 1, "beta_cohort": 1}
+
+
+def test_segment_to_archetype_reads_sidecar(_isolated_sandbox: Path) -> None:
+    rid = "20260524T000000Z-aliases1"
+    run_dir = runs.allocate(rid)
+    (run_dir / "config.userinput.yaml").write_text(
+        "segments:\n"
+        "  - name: alpha_cohort\n"
+        "    archetype: growth\n"
+        "  - name: beta_cohort\n"
+        "    archetype: decline\n",
+        encoding="utf-8",
+    )
+    assert _segment_to_archetype(run_dir) == {
+        "alpha_cohort": "growth",
+        "beta_cohort": "decline",
+    }
+
+
+def test_segment_to_archetype_missing_sidecar_returns_empty(
+    _isolated_sandbox: Path,
+) -> None:
+    rid = "20260524T000000Z-aliases2"
+    run_dir = runs.allocate(rid)
+    assert _segment_to_archetype(run_dir) == {}
 
 
 def test_describe_run_payload_returns_envelope_for_real_dir(

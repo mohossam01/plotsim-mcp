@@ -23,6 +23,12 @@ supported in v1. Row order in those tables is entity-major, period-minor
 divmods cleanly into ``(entity_idx, period_index)``. Other grains have
 no single (entity, period) axis pair and refuse with
 ``plotsim.trace.column_not_metric``.
+
+Archetype vocabulary. ``trace.archetype`` is the user-authored archetype
+word from the run's ``config.userinput.yaml`` sidecar, not the
+post-interpret segment name plotsim's internal ``TraceResult.archetype_name``
+carries. Legacy runs without a sidecar surface the interpreter value
+unchanged.
 """
 from __future__ import annotations
 
@@ -34,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 from mcp.server.fastmcp import FastMCP
 
 from plotsim_mcp import runs
@@ -56,6 +63,7 @@ CODE_COLUMN_NOT_METRIC = "plotsim.trace.column_not_metric"
 CODE_ENTITY_NOT_FOUND = "plotsim.trace.entity_not_found"
 
 _CONFIG_FILENAME = "config.yaml"
+_SIDECAR_FILENAME = "config.userinput.yaml"
 _MANIFEST_FILENAME = "manifest.json"
 _TABLE_EXTS = (".csv", ".parquet", ".jsonl")
 
@@ -176,6 +184,35 @@ def _resolve_entity_and_period(
     return str(config.entities[entity_idx].name), int(period_index)
 
 
+def _archetype_alias_for(run_dir: Path, interpreter_name: str) -> str:
+    """Map the interpreter-renamed archetype back to the user's word.
+
+    The builder-shape sidecar ``create_dataset`` writes alongside the
+    run preserves ``segments[].name`` → ``segments[].archetype``. The
+    interpreter sets ``Entity.archetype = segment.name``, so looking up
+    ``interpreter_name`` as a segment-name key recovers the original
+    archetype word. Legacy runs without a sidecar (or a malformed one)
+    fall back to the interpreter value unchanged.
+    """
+    sidecar = run_dir / _SIDECAR_FILENAME
+    if not sidecar.is_file():
+        return interpreter_name
+    try:
+        data = yaml.safe_load(sidecar.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return interpreter_name
+    if not isinstance(data, dict):
+        return interpreter_name
+    for segment in data.get("segments", []) or []:
+        if not isinstance(segment, dict):
+            continue
+        if segment.get("name") == interpreter_name:
+            archetype = segment.get("archetype")
+            if isinstance(archetype, str) and archetype:
+                return archetype
+    return interpreter_name
+
+
 def _trace_source_for(manifest_path: Path, entity_name: str) -> str:
     """Return ``'manifest'`` iff the entity's trajectory is in the manifest.
 
@@ -271,7 +308,7 @@ def trace_cell_payload(
         "row_id": row_id,
         "column": column,
         "trace": {
-            "archetype": str(trace.archetype_name),
+            "archetype": _archetype_alias_for(run_dir, str(trace.archetype_name)),
             "trajectory_position": float(trace.trajectory_position),
             "distribution": str(trace.distribution_family),
             "noise_realization": noise_realization,

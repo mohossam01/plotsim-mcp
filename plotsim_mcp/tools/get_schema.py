@@ -1,10 +1,15 @@
-"""``get_schema`` — return plotsim's ``PlotsimConfig`` JSON Schema.
+"""``get_schema`` — return plotsim's ``UserInput`` JSON Schema.
 
-The schema is the contract every other tool's input/output is shaped around.
-Clients call this once at session start to drive form rendering, validation,
-and autocomplete. Sourced directly from pydantic
-(``PlotsimConfig.model_json_schema()``) rather than the ``plotsim schema``
-CLI so we don't subprocess for what is a pure-Python introspection.
+The schema is the contract every authoring tool's input is shaped against
+— the same vocabulary ``validate_config``, ``preview``, and
+``create_dataset`` accept. Clients fetch it once per session and use it
+to drive form rendering, autocomplete, and client-side validation against
+the **builder** layer (``unit``, ``segments``, ``metrics``, ``window``)
+rather than the engine-shape (``entities``, ``archetypes``, ``tables``,
+``time_window``) that plotsim's interpreter produces internally. Sourced
+directly from pydantic (``UserInput.model_json_schema()``) rather than the
+``plotsim schema`` CLI so we don't subprocess for what is a pure-Python
+introspection.
 """
 from __future__ import annotations
 
@@ -19,18 +24,19 @@ from plotsim_mcp.errors import CODE_INTERNAL, ToolError
 
 TOOL_NAME = "get_schema"
 TOOL_DESCRIPTION = (
-    "Return the full plotsim PlotsimConfig JSON Schema. The schema is the "
-    "contract for every input passed to plotsim — clients should fetch it "
-    "once per session and use it to drive form rendering, autocomplete, and "
-    "client-side validation."
+    "Return the plotsim UserInput JSON Schema — the builder-shape contract "
+    "validate_config, preview, and create_dataset accept. Clients should "
+    "fetch it once per session and use it to drive form rendering, "
+    "autocomplete, and client-side validation against the same vocabulary "
+    "the user authors against."
 )
 
 
 def get_schema_payload() -> dict[str, Any]:
     """Assemble ``{schema, schema_version}`` for the tool payload."""
-    from plotsim.config import PlotsimConfig
+    from plotsim.builder.input import UserInput
 
-    schema = PlotsimConfig.model_json_schema()
+    schema = UserInput.model_json_schema()
     return {"schema": schema, "schema_version": plotsim.__version__}
 
 
@@ -49,7 +55,7 @@ def register(server: FastMCP) -> None:
             traceback_id = uuid.uuid4().hex
             return ToolError(
                 code=CODE_INTERNAL,
-                message=f"failed to emit PlotsimConfig schema: {exc}",
+                message=f"failed to emit UserInput schema: {exc}",
                 details={"traceback": traceback.format_exc()},
                 traceback_id=traceback_id,
             ).to_tool_result()

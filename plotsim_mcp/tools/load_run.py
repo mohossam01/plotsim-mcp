@@ -10,6 +10,16 @@ config and re-run" loop.
 Composes existing tool payload functions rather than re-deriving the
 same numbers — any future schema change to the summary or report parser
 automatically propagates here.
+
+Config-shape contract. ``config_yaml`` / ``config_parsed`` are returned
+in **builder shape** (``UserInput``) — the same vocabulary the caller
+authored against — read from the ``config.userinput.yaml`` sidecar
+``create_dataset`` writes alongside plotsim's engine-shape config copy.
+Feeding ``config_yaml`` back to ``validate_config`` or ``create_dataset``
+round-trips without engine-vs-builder coercion. Legacy runs written
+before the sidecar contract land here as engine-shape ``config.yaml``;
+those won't round-trip through the builder tools without manual
+reshaping.
 """
 from __future__ import annotations
 
@@ -34,14 +44,27 @@ TOOL_DESCRIPTION = (
     "get_validation_report."
 )
 
-_CONFIG_FILENAME = "config.yaml"
+_SIDECAR_FILENAME = "config.userinput.yaml"
+_LEGACY_CONFIG_FILENAME = "config.yaml"
 
 
 def _read_config_text(run_dir: Path) -> str:
-    config_path = run_dir / _CONFIG_FILENAME
-    if not config_path.is_file():
-        return ""
-    return config_path.read_text(encoding="utf-8")
+    """Return the builder-shape sidecar when present; engine-shape YAML otherwise.
+
+    Runs created by ``create_dataset`` from 0.2.0 onward carry a
+    ``config.userinput.yaml`` sidecar that round-trips through the builder
+    tools. Pre-0.2.0 runs (and any future run created by a code path that
+    skips the sidecar) only have plotsim's engine-shape ``config.yaml``;
+    we return that as a best-effort fallback so the tool stays useful on
+    legacy artifacts.
+    """
+    sidecar = run_dir / _SIDECAR_FILENAME
+    if sidecar.is_file():
+        return sidecar.read_text(encoding="utf-8")
+    legacy = run_dir / _LEGACY_CONFIG_FILENAME
+    if legacy.is_file():
+        return legacy.read_text(encoding="utf-8")
+    return ""
 
 
 def load_run_payload(run_id: str) -> dict[str, Any]:

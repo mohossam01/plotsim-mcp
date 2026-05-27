@@ -7,6 +7,15 @@ counts, treatment cohorts, bridge sizes, correlation phase count). The
 raw manifest itself is NOT inlined — it can be megabytes on large runs;
 the caller can fetch it directly from ``manifest_path`` when needed.
 
+Archetype-count vocabulary. The manifest records each entity's
+post-interpret archetype value, which plotsim's builder interpreter sets
+to the entity's source segment name (``plotsim.builder.interpreter``
+``Entity.archetype = segment.name``). ``archetype_counts`` translates
+those segment names back to the user's authored archetype word via the
+``config.userinput.yaml`` sidecar ``create_dataset`` writes alongside the
+manifest. Legacy runs without a sidecar fall through unchanged — counts
+key by the segment name the manifest recorded.
+
 Runs whose configs disabled the manifest (``config.manifest.include =
 False``) still resolve; the summary's ``manifest_path`` is ``None`` and
 manifest-derived counts are zero. The ``tables`` field always reflects
@@ -16,8 +25,10 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
+import yaml
 from mcp.server.fastmcp import FastMCP
 
 from plotsim_mcp import runs
@@ -32,19 +43,60 @@ TOOL_DESCRIPTION = (
 )
 
 _MANIFEST_FILENAME = "manifest.json"
+_SIDECAR_FILENAME = "config.userinput.yaml"
 
 
-def _summarize_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+def _segment_to_archetype(run_dir: Path) -> dict[str, str]:
+    """Map each segment name to its user-authored archetype word.
+
+    Reads the ``config.userinput.yaml`` sidecar. Returns an empty mapping
+    on a missing / malformed sidecar; callers treat that as "leave the
+    segment-name passthrough alone." The interpreter sets
+    ``Entity.archetype = segment.name``, so the keys here recover the
+    builder vocabulary the user authored.
+    """
+    sidecar = run_dir / _SIDECAR_FILENAME
+    if not sidecar.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(sidecar.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    aliases: dict[str, str] = {}
+    for segment in data.get("segments", []) or []:
+        if not isinstance(segment, dict):
+            continue
+        name = segment.get("name")
+        archetype = segment.get("archetype")
+        if isinstance(name, str) and isinstance(archetype, str):
+            aliases[name] = archetype
+    return aliases
+
+
+def _summarize_manifest(
+    manifest: dict[str, Any],
+    archetype_aliases: dict[str, str],
+) -> dict[str, Any]:
     """Reduce a parsed manifest dict to its inspection-friendly numbers.
 
     Defensive against missing keys — earlier manifest schemas (and
     manifest=False runs) drop fields. Every count falls back to 0 / [].
+    ``archetype_aliases`` translates each manifest assignment's
+    post-interpret ``archetype`` (a segment name) back to the user's
+    authored archetype word; unknown keys pass through unchanged so the
+    tool still produces useful output against legacy runs.
     """
     assignments = manifest.get("archetype_assignments", []) or []
-    archetype_counts = Counter(
-        a.get("archetype") for a in assignments if isinstance(a, dict)
-    )
-    archetype_counts.pop(None, None)
+    archetype_counts: Counter[str] = Counter()
+    for assignment in assignments:
+        if not isinstance(assignment, dict):
+            continue
+        raw = assignment.get("archetype")
+        if not isinstance(raw, str):
+            continue
+        archetype_counts[archetype_aliases.get(raw, raw)] += 1
 
     # Field names mirror the pydantic classes plotsim writes:
     # ``TrajectorySample.entity``, ``EventFiring.table``,
@@ -96,13 +148,14 @@ def describe_run_payload(run_id: str) -> dict[str, Any]:
     ``plotsim.run.not_found``.
     """
     run_dir = runs.resolve(run_id)
+    aliases = _segment_to_archetype(run_dir)
     manifest_path = run_dir / _MANIFEST_FILENAME
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        summary = _summarize_manifest(manifest)
+        summary = _summarize_manifest(manifest, aliases)
         manifest_str: str | None = str(manifest_path)
     else:
-        summary = _summarize_manifest({})
+        summary = _summarize_manifest({}, aliases)
         manifest_str = None
 
     tables = sorted(p.name for p in run_dir.iterdir() if p.is_file())

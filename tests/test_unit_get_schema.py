@@ -1,5 +1,5 @@
 """Unit coverage for ``get_schema`` — verify the payload shape with the
-underlying ``PlotsimConfig`` introspection mocked out, so this test fails on
+underlying ``UserInput`` introspection mocked out, so this test fails on
 contract drift rather than on schema content changes.
 """
 from __future__ import annotations
@@ -26,10 +26,15 @@ def test_schema_is_a_dict() -> None:
     assert isinstance(payload["schema"], dict)
 
 
-def test_schema_pulls_from_pydantic_model_json_schema() -> None:
-    """Lock the introspection source — if someone swaps in a subprocess
-    call to ``plotsim schema``, this test fails."""
-    fake_schema = {"title": "FakePlotsimConfig", "type": "object"}
-    with patch("plotsim.config.PlotsimConfig.model_json_schema", return_value=fake_schema):
+def test_schema_pulls_from_userinput_model_json_schema() -> None:
+    """Lock the introspection source to the builder-shape ``UserInput``
+    model — if someone swaps back to ``PlotsimConfig`` or a subprocess
+    call to ``plotsim schema``, this test fails.
+    """
+    fake_schema = {"title": "FakeUserInput", "type": "object"}
+    with patch(
+        "plotsim.builder.input.UserInput.model_json_schema",
+        return_value=fake_schema,
+    ):
         payload = get_schema_payload()
     assert payload["schema"] == fake_schema
