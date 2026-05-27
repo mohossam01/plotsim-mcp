@@ -70,6 +70,24 @@ def test_trace_cell_returns_lineage_for_real_run() -> None:
     assert trace["trace_source"] in {"manifest", "rederived_from_seed"}
 
 
+def test_trace_archetype_is_builder_shape_word() -> None:
+    """``trace.archetype`` surfaces the user-authored archetype word from
+    the ``config.userinput.yaml`` sidecar, not the post-interpret
+    segment name plotsim's internal ``TraceResult.archetype_name``
+    carries.
+    """
+    created = create_dataset_payload(_TINY_CONFIG, seed=103)
+    run_dir = runs.resolve(created["run_id"])
+    table, column = _pick_metric_column(run_dir)
+
+    envelope = trace_cell_payload(created["run_id"], table, "0", column)
+    # _TINY_CONFIG declares a single segment with archetype "growth".
+    assert envelope["trace"]["archetype"] == "growth", (
+        f"expected builder-shape archetype 'growth'; got "
+        f"{envelope['trace']['archetype']!r} (likely the segment name leak)"
+    )
+
+
 def test_trace_cell_realized_value_matches_table_cell() -> None:
     """The realized_value the tool reports must agree with the CSV cell.
 

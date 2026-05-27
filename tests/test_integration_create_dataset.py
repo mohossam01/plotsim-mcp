@@ -42,6 +42,27 @@ def test_template_name_input_produces_valid_run(_isolated_sandbox: Path) -> None
     assert "validation_report.txt" in files
 
 
+def test_sidecar_is_written_and_round_trips_through_userinput(
+    _isolated_sandbox: Path,
+) -> None:
+    """End-to-end check the sidecar contract holds against a real
+    bundled template — file lands in the run dir alongside the
+    engine-shape ``config.yaml`` and parses cleanly as ``UserInput``.
+    """
+    import yaml as _yaml
+    from plotsim.builder.input import UserInput
+
+    envelope = create_dataset_payload("hr", seed=29)
+    out = Path(envelope["output_dir"])
+    sidecar = out / "config.userinput.yaml"
+    assert sidecar.is_file()
+
+    parsed = _yaml.safe_load(sidecar.read_text(encoding="utf-8"))
+    assert isinstance(parsed, dict)
+    # Round-trips through the builder schema without engine-shape coercion.
+    UserInput(**parsed)
+
+
 def test_overrides_are_applied(_isolated_sandbox: Path) -> None:
     envelope = create_dataset_payload(
         _TINY_CONFIG,

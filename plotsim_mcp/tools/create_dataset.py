@@ -63,6 +63,14 @@ TOOL_DESCRIPTION = (
 
 _VALID_FORMATS = ("csv", "parquet", "jsonl", "sql")
 
+# Sidecar filename for the builder-shape input that produced the run. Written
+# alongside the engine-shape ``config.yaml`` plotsim emits (via
+# ``write_config_copy``) so inspection tools can surface the user's
+# pre-interpret vocabulary — archetype words, segment names, baselines — and
+# the modify-and-rerun loop can round-trip back through ``validate_config`` /
+# ``create_dataset`` without engine-shape coercion.
+_SIDECAR_FILENAME = "config.userinput.yaml"
+
 
 def _looks_like_template_name(value: str) -> bool:
     """Heuristic: bare identifier (no newline / colon / brace) is a name."""
@@ -228,6 +236,17 @@ def create_dataset_payload(
         warnings.simplefilter("ignore")
         config = create(**data)
         resolved = plotsim_run(config, target, seed=seed)
+
+    # Persist the builder-shape input as a sidecar. ``data`` here is the
+    # exact dict ``plotsim.create(**data)`` consumed — after overrides, seed
+    # injection, and the sandbox-directory rewrite. ``sort_keys=False``
+    # preserves the user's declared field order so the YAML stays readable
+    # and diffable against whatever they originally authored.
+    sidecar_path = Path(resolved) / _SIDECAR_FILENAME
+    sidecar_path.write_text(
+        yaml.safe_dump(data, sort_keys=False),
+        encoding="utf-8",
+    )
 
     tables_written = sorted(
         p.name for p in Path(resolved).iterdir() if p.is_file()

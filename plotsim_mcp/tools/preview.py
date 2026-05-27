@@ -111,6 +111,25 @@ def _resolved_cell_budget(config: Any) -> int:
     return _CELL_SOFT_BUDGET_DEFAULT
 
 
+def _builder_archetypes(data: dict[str, Any]) -> list[str]:
+    """Return the sorted set of archetype words declared on input segments.
+
+    The interpreter overwrites ``Entity.archetype`` with the source segment
+    name, so reading archetypes off the post-interpret config loses the
+    user's authored word. Pulling from the input dict before ``create()``
+    keeps the surface keyed by the same vocabulary the user typed
+    (including composite DSL specs like ``"growth then plateau"``).
+    """
+    found: set[str] = set()
+    for segment in data.get("segments") or []:
+        if not isinstance(segment, dict):
+            continue
+        archetype = segment.get("archetype")
+        if isinstance(archetype, str) and archetype:
+            found.add(archetype)
+    return sorted(found)
+
+
 def preview_payload(payload: str | dict[str, Any]) -> dict[str, Any]:
     """Return the preview envelope; raise typed exceptions on failure.
 
@@ -121,6 +140,7 @@ def preview_payload(payload: str | dict[str, Any]) -> dict[str, Any]:
     from plotsim.config import _CELL_HARD_CEILING
 
     data = _coerce_to_dict(payload)
+    archetypes_in_use = _builder_archetypes(data)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         config = create(**data)
@@ -143,7 +163,7 @@ def preview_payload(payload: str | dict[str, Any]) -> dict[str, Any]:
             "fact": n_fact,
             "event": n_event,
         },
-        "archetypes_in_use": sorted({ent.archetype for ent in config.entities}),
+        "archetypes_in_use": archetypes_in_use,
         "estimated_rows": estimated_rows,
         "cell_count": cell_count,
         "cell_budget": cell_budget,

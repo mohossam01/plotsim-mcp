@@ -44,6 +44,29 @@ def test_describe_run_summarizes_a_real_run() -> None:
     assert "manifest.json" in described["tables"]
 
 
+def test_archetype_counts_keys_are_builder_shape_words() -> None:
+    """``archetype_counts`` rolls up the manifest's per-segment instance
+    names back to the user-authored archetype word via the
+    ``config.userinput.yaml`` sidecar. Two segments sharing the same
+    archetype word collapse into a single key.
+    """
+    cfg = {
+        **_TINY_CONFIG,
+        "segments": [
+            {"name": "alpha_cohort", "count": 5, "archetype": "growth"},
+            {"name": "beta_cohort", "count": 5, "archetype": "growth"},
+        ],
+    }
+    created = create_dataset_payload(cfg, seed=43)
+    summary = describe_run_payload(created["run_id"])["summary"]
+    # 5 + 5 entities, all archetype "growth" — keys must surface as the
+    # user-authored word, not the per-segment instance names.
+    assert summary["archetype_counts"] == {"growth": 10}, (
+        f"expected builder-shape archetype key 'growth'; got "
+        f"{summary['archetype_counts']!r}"
+    )
+
+
 def test_describe_run_summary_keys_match_real_manifest_field_names() -> None:
     """Regression: the summarizer must read manifest field names that
     actually exist on plotsim's pydantic manifest classes

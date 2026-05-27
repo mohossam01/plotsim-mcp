@@ -37,17 +37,65 @@ def test_load_run_envelope_reflects_real_run() -> None:
     envelope = load_run_payload(created["run_id"])
 
     assert envelope["run_id"] == created["run_id"]
-    # The engine writes engine-shape YAML; the parsed dict must at least carry
-    # the top-level sections plotsim is documented to emit.
+    # ``config_parsed`` is the builder-shape sidecar — it must carry the
+    # builder vocabulary the caller authored against, not the engine-shape
+    # keys plotsim's interpreter produces (``entities``, ``archetypes``,
+    # ``time_window``).
     parsed = envelope["config_parsed"]
     assert isinstance(parsed, dict)
-    assert "domain" in parsed
+    assert "unit" in parsed
+    assert "segments" in parsed
+    assert "window" in parsed
     assert "metrics" in parsed
-    assert "entities" in parsed
     # 5 entities → 5 archetype assignments in the manifest summary.
     assert envelope["manifest_summary"]["archetype_assignments_total"] == 5
     assert envelope["validation_ok"] is True
-    # tables_written includes the engine artifacts.
+    # tables_written includes both the engine artifacts and the sidecar.
     assert "config.yaml" in envelope["tables_written"]
+    assert "config.userinput.yaml" in envelope["tables_written"]
     assert "manifest.json" in envelope["tables_written"]
     assert "validation_report.txt" in envelope["tables_written"]
+
+
+def test_load_run_config_yaml_round_trips_through_validate_config() -> None:
+    """The modify-and-rerun loop's load-bearing claim: the YAML
+    ``load_run`` returns can be fed back to ``validate_config`` (and
+    on to ``create_dataset``) without coercion.
+    """
+    from plotsim_mcp.tools.validate_config import validate_config_payload
+
+    created = create_dataset_payload(_TINY_CONFIG, seed=131)
+    envelope = load_run_payload(created["run_id"])
+
+    validated = validate_config_payload(envelope["config_yaml"])
+    assert validated["valid"] is True, (
+        f"builder-shape sidecar must round-trip through validate_config; "
+        f"got {validated!r}"
+    )
+
+    # And the second create_dataset call against the same builder-shape
+    # YAML produces another valid run — the full modify-and-rerun loop.
+    rerun = create_dataset_payload(envelope["config_yaml"], seed=137)
+    assert rerun["run_id"]
+    assert rerun["validation_summary"]["ok"] is True
+
+
+def test_load_run_falls_back_to_engine_shape_when_sidecar_absent() -> None:
+    """A run with no sidecar (the legacy artifact path) still loads — the
+    fallback engine-shape ``config.yaml`` surfaces in ``config_yaml`` /
+    ``config_parsed`` even though it won't round-trip through the builder
+    tools.
+    """
+    created = create_dataset_payload(_TINY_CONFIG, seed=139)
+    run_dir = Path(created["output_dir"])
+    sidecar = run_dir / "config.userinput.yaml"
+    assert sidecar.is_file(), "sidecar must exist before we delete it"
+    sidecar.unlink()
+
+    envelope = load_run_payload(created["run_id"])
+    parsed = envelope["config_parsed"]
+    assert isinstance(parsed, dict)
+    # Engine-shape: ``entities`` and ``archetypes`` are populated by the
+    # interpreter; ``segments`` / ``unit`` do not appear here.
+    assert "entities" in parsed
+    assert "segments" not in parsed

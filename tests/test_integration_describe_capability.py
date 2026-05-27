@@ -45,8 +45,14 @@ def test_validation_checks_include_pk_and_fk() -> None:
         assert known in values
 
 
-def test_archetypes_drawn_from_bundled_templates() -> None:
+def test_archetypes_returns_canonical_shape_vocabulary() -> None:
+    """``archetypes`` enumerates the canonical atomic shape vocabulary —
+    the six words plotsim's archetype DSL accepts at any position — not
+    the subset that happens to appear in bundled templates.
+    """
+    from plotsim.builder.recipes import VALID_SHAPE_WORDS
+
     values = describe_capability_payload("archetypes")["values"]
-    assert values, "archetypes must surface at least one bundled value"
-    # All entries are non-empty strings.
-    assert all(isinstance(v, str) and v for v in values)
+    assert values == sorted(VALID_SHAPE_WORDS)
+    # Stable, deterministic order across calls.
+    assert values == sorted(values)

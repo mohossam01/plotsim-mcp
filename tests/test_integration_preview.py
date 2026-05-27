@@ -52,3 +52,22 @@ def test_saas_estimated_rows_matches_plotsim_cli_within_1pct() -> None:
     assert abs(payload["estimated_rows"] - expected_rows) <= max(
         1, int(0.01 * expected_rows)
     )
+
+
+def test_archetypes_in_use_matches_builder_input_for_bundled_template() -> None:
+    """``archetypes_in_use`` surfaces the archetype words declared on the
+    input ``segments`` list — the same vocabulary the user authored —
+    not the post-interpret per-segment instance names plotsim's
+    interpreter writes to ``config.entities[].archetype``.
+    """
+    template = _read_template("hr")
+    payload = preview_payload(template)
+    expected = sorted({
+        s["archetype"] for s in template["segments"]
+        if isinstance(s, dict) and isinstance(s.get("archetype"), str)
+    })
+    assert payload["archetypes_in_use"] == expected
+    # Sanity: the post-interpret per-segment names (what the engine
+    # ends up with) would not match this set.
+    segment_names = {s["name"] for s in template["segments"]}
+    assert set(payload["archetypes_in_use"]) != segment_names

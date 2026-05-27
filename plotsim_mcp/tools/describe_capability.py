@@ -1,16 +1,18 @@
 """``describe_capability`` — enumerate the vocabulary plotsim accepts for a
 named capability area.
 
-Source-of-truth introspection per the M035 lock #4 decision: read directly
-from ``plotsim.curves.CURVE_REGISTRY``, the ``Literal`` types in
+Source-of-truth introspection: read directly from
+``plotsim.curves.CURVE_REGISTRY``, the ``Literal`` types in
 ``plotsim.builder.input``, the validation check constants in
-``plotsim.validation``, and the bundled template YAMLs. v1.1 will extract a
-``plotsim.capabilities`` accessor module so MCP doesn't have to follow
-internal renames.
+``plotsim.validation``, and the canonical shape-word set in
+``plotsim.builder.recipes``. A future ``plotsim.capabilities`` accessor
+module is anticipated so MCP doesn't have to follow internal renames.
 
 Areas:
-    archetypes         — archetype strings present in the bundled templates
-                         (atomic shape words plus any composite DSL specs).
+    archetypes         — canonical atomic shape words the archetype DSL
+                         accepts at any position (composites like
+                         "growth then plateau" are valid input but the
+                         atoms are the vocabulary).
     curves             — registered curve types (CURVE_REGISTRY keys).
     distributions      — metric distribution families.
     arrival_shapes     — segment arrival distribution kinds.
@@ -20,10 +22,8 @@ Areas:
 """
 from __future__ import annotations
 
-import importlib.resources as _resources
 from typing import Any, get_args
 
-import yaml
 from mcp.server.fastmcp import FastMCP
 
 from plotsim_mcp.errors import ToolError
@@ -47,8 +47,6 @@ VALID_AREAS = (
 )
 
 CODE_CAPABILITY_UNKNOWN = "plotsim.capability.unknown"
-
-_TEMPLATE_PACKAGE = "plotsim.configs.templates"
 
 
 def _curves() -> list[str]:
@@ -120,20 +118,13 @@ def _validation_checks() -> list[str]:
 
 
 def _archetypes() -> list[str]:
-    # Pull archetype strings out of each bundled template YAML. Reading via
-    # ``importlib.resources`` avoids ``plotsim.load_template`` (which emits
-    # a stdout banner — see the [m35/...stdout] finding deferred to M037).
-    root = _resources.files(_TEMPLATE_PACKAGE)
-    found: set[str] = set()
-    for entry in root.iterdir():
-        if not entry.name.endswith(".yaml"):
-            continue
-        data = yaml.safe_load(entry.read_text(encoding="utf-8")) or {}
-        for segment in data.get("segments", []) or []:
-            archetype = segment.get("archetype") if isinstance(segment, dict) else None
-            if isinstance(archetype, str) and archetype:
-                found.add(archetype)
-    return sorted(found)
+    # Canonical atomic shape vocabulary, not the subset of words that
+    # happens to appear in bundled templates. Users compose these via the
+    # archetype DSL (e.g., ``"growth then plateau"``); only the atoms are
+    # enumerated here — composites are open-ended.
+    from plotsim.builder.recipes import VALID_SHAPE_WORDS
+
+    return sorted(VALID_SHAPE_WORDS)
 
 
 _AREA_DISPATCH = {
