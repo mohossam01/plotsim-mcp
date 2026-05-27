@@ -29,9 +29,11 @@ from plotsim_mcp import runs
 from plotsim_mcp.tools.create_dataset import create_dataset_payload
 from plotsim_mcp.tools.describe_capability import describe_capability_payload
 from plotsim_mcp.tools.describe_run import describe_run_payload
+from plotsim_mcp.tools.get_sandbox_root import get_sandbox_root_payload
 from plotsim_mcp.tools.get_schema import get_schema_payload
 from plotsim_mcp.tools.get_template import get_template_payload
 from plotsim_mcp.tools.get_validation_report import get_validation_report_payload
+from plotsim_mcp.tools.list_runs import list_runs_payload
 from plotsim_mcp.tools.list_templates import list_templates_payload
 from plotsim_mcp.tools.load_run import load_run_payload
 from plotsim_mcp.tools.preview import preview_payload
@@ -166,6 +168,21 @@ def test_load_run_writes_no_stdout() -> None:
     _assert_clean(
         _capture_stdout(lambda: load_run_payload(created["run_id"])),
         "load_run",
+    )
+
+
+def test_list_runs_writes_no_stdout() -> None:
+    # Create one run first so the listing has at least one entry — the
+    # iterdir + per-entry stat path is what stdout-discipline most
+    # plausibly regresses on if a future change adds a debug print.
+    create_dataset_payload(_TINY_CONFIG, seed=91)
+    _assert_clean(_capture_stdout(lambda: list_runs_payload()), "list_runs")
+
+
+def test_get_sandbox_root_writes_no_stdout() -> None:
+    _assert_clean(
+        _capture_stdout(lambda: get_sandbox_root_payload()),
+        "get_sandbox_root",
     )
 
 

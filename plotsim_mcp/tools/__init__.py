@@ -12,9 +12,11 @@ from mcp.server.fastmcp import FastMCP
 from plotsim_mcp.tools import create_dataset as _create_dataset
 from plotsim_mcp.tools import describe_capability as _describe_capability
 from plotsim_mcp.tools import describe_run as _describe_run
+from plotsim_mcp.tools import get_sandbox_root as _get_sandbox_root
 from plotsim_mcp.tools import get_schema as _get_schema
 from plotsim_mcp.tools import get_template as _get_template
 from plotsim_mcp.tools import get_validation_report as _get_validation_report
+from plotsim_mcp.tools import list_runs as _list_runs
 from plotsim_mcp.tools import list_templates as _list_templates
 from plotsim_mcp.tools import load_run as _load_run
 from plotsim_mcp.tools import preview as _preview
@@ -34,3 +36,5 @@ def register_all(server: FastMCP) -> None:
     _get_validation_report.register(server)
     _trace_cell.register(server)
     _load_run.register(server)
+    _list_runs.register(server)
+    _get_sandbox_root.register(server)

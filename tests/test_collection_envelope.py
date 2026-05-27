@@ -96,6 +96,8 @@ async def test_every_tool_returns_single_textcontent_block() -> None:
             "column": _trace_column,
         },
         "load_run": {"run_id": created["run_id"]},
+        "list_runs": {},
+        "get_sandbox_root": {},
     }
 
     server = build_server()
