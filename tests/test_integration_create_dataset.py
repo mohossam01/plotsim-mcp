@@ -76,7 +76,11 @@ def test_format_override_honored(_isolated_sandbox: Path) -> None:
 def test_same_seed_and_config_same_run_id(_isolated_sandbox: Path) -> None:
     envelope_a = create_dataset_payload(_TINY_CONFIG, seed=17)
     envelope_b = create_dataset_payload(_TINY_CONFIG, seed=17)
-    # Same logical inputs land at the SAME run_id; the on-disk dir gets a
-    # collision suffix (the second call uses runs.allocate, which appends).
-    assert envelope_a["run_id"] == envelope_b["run_id"]
+    # Same logical inputs land at the SAME content-hash suffix; the
+    # `<UTC-timestamp>-` prefix is wall-clock-second-bounded (see
+    # `plotsim_mcp/runs.py` docstring) and may differ by 1s when the
+    # two calls straddle a second boundary on slow runners. On-disk
+    # dir gets a collision suffix (the second call uses runs.allocate,
+    # which appends).
+    assert envelope_a["run_id"].split("-")[1] == envelope_b["run_id"].split("-")[1]
     assert envelope_a["output_dir"] != envelope_b["output_dir"]
